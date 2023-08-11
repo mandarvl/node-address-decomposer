@@ -5,23 +5,53 @@ const path = require('path');
 function decomposeAddress(address) {
     const parts = address.split(' ');
 
-    const postalCodeIndex = parts.findIndex(part => /^\d{4}$/.test(part));
-    const city = parts.slice(postalCodeIndex + 1).join(' ');
+    let postalCodeIndex = -1;
+    let streetIndex = -1;
 
-    let buildingNumber = '';
+    // Find the index of the postal code
+    for (let i = 0; i < parts.length; i++) {
+        if (/^\d{4}$/.test(parts[i])) {
+            postalCodeIndex = i;
+            break;
+        }
+    }
+
+    // Check if the postal code is found
+    if (postalCodeIndex !== -1) {
+        const beforePostalCode = parts[postalCodeIndex - 1];
+        if (beforePostalCode) {
+            if (beforePostalCode.includes('-')) {
+                streetIndex = postalCodeIndex - 1;
+            }
+            else if (!isNaN(+beforePostalCode)) {
+                streetIndex = postalCodeIndex - 1;
+            }
+            else if (isNaN(+beforePostalCode) && !isNaN(+parts[postalCodeIndex - 2])) {
+                streetIndex = postalCodeIndex - 2;
+            }
+        }
+    }
+
+    let road = '';
     let street = '';
 
-    if (postalCodeIndex > 1) {
-        buildingNumber = parts.slice(0, postalCodeIndex - 1).join(' ');
-        street = parts[postalCodeIndex - 1];
+    if (streetIndex !== -1) {
+        road = parts.slice(0, streetIndex).join(' ');
+        street = parts[streetIndex];
+    } else if (postalCodeIndex > 0) {
+        // street = parts[postalCodeIndex - 1];
+        road = parts.slice(0, postalCodeIndex).join(' ');
     } else {
-        street = parts[0];
+        // street = parts[0];
+        road = '';
+        street = '';
     }
 
     const postalCode = parts[postalCodeIndex];
+    const city = parts.slice(postalCodeIndex + 1).join(' ');
 
     return {
-        buildingNumber: buildingNumber,
+        road: road,
         street: street,
         postalCode: postalCode,
         city: city
@@ -29,7 +59,7 @@ function decomposeAddress(address) {
 }
 
 // Example usage
-const adresses = [
+let adresses = [
     "Marktgasse 60 4310 Rheinfelden",
     "Obere Gletscherstrasse 1 3818 Grindelwald",
     "Via Collinetta 78 6612 Ascona",
@@ -827,10 +857,11 @@ const adresses = [
     "Matterstrasse 9 3920 Zermatt",
     "Oberburg 1 8158 Regensberg",
     "Centre du Parc rue Marconi 19 1920 Martigny"
-]
+];
 
 const formattedAdresses = adresses.map(address => {
-    return decomposeAddress(address);
+    const res = decomposeAddress(address);
+    return res;
 });
 
 const outputDir = path.join(__dirname, './outputs');
@@ -842,7 +873,8 @@ if (!fs.existsSync(outputDir)) {
 const csvWriter = createCsvWriter({
     path: `outputs/output-addresses-${Date.now()}.csv`,
     header: [
-      { id: 'buildingNumber', title: 'Building/House number' },
+      { id: 'road', title: 'Road/House' },
+      { id: 'street', title: 'Street Number' },
       { id: 'postalCode', title: 'Postal Code' },
       { id: 'city', title: 'City' }
     ],
